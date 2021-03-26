@@ -33,7 +33,6 @@ class Blockchain:
         else:
             raise ValueError('Invalid URL')
 
-
     def valid_chain(self, chain):
         """
         Determine if a given blockchain is valid
@@ -106,10 +105,14 @@ class Blockchain:
         :param previous_hash: Hash of previous Block
         :return: New Block
         """
-
+        # 若为创世区块,设置时间戳为 0
+        if previous_hash == '1' and proof == 100:
+            Time = 0
+        else:
+            Time = time()
         block = {
             'index': len(self.chain) + 1,
-            'timestamp': time(),
+            'timestamp': Time,
             'transactions': self.current_transactions,
             'proof': proof,
             'previous_hash': previous_hash or self.hash(self.chain[-1]),
@@ -138,6 +141,7 @@ class Blockchain:
 
         return self.last_block['index'] + 1
 
+    # 返回当前区块链中最新的区块
     @property
     def last_block(self):
         return self.chain[-1]
@@ -214,11 +218,15 @@ def mine():
         recipient=node_identifier,
         amount=1,
     )
-
     # Forge the new Block by adding it to the chain
     previous_hash = blockchain.hash(last_block)
     block = blockchain.new_block(proof, previous_hash)
 
+    # 当挖矿成功后, 将信息告知邻居节点, 让它们来更新区块链
+    for node in blockchain.nodes:
+        response = requests.get(f'http://{node}/nodes/resolve')
+        if response.status_code == 200:
+            print("通知邻居更新区块链成功!")
     response = {
         'message': "New Block Forged",
         'index': block['index'],
@@ -267,7 +275,7 @@ def register_nodes():
 
     response = {
         'message': 'New nodes have been added',
-        'total_nodes': list(blockchain.nodes),
+        'total_neighbors': list(blockchain.nodes),
     }
     return jsonify(response), 201
 
@@ -298,4 +306,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     port = args.port
 
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port,debug=True)
